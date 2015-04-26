@@ -10,20 +10,41 @@ import (
 
 const OrangeColour int = 167
 
+const textPadding int = 1
+
+const buildingMessage string = "Building"
+
 // rect is a simple struct giving a bounding rectangle for a widget
 type rect struct {
-	x int
-	y int
-	w int
-	h int
+	point
+	size
 }
 
-// rect defines a single point on the screen
+func (r rect) String() string {
+	return fmt.Sprintf("<Rect x:%d,y:%d | w:%d,h:%d>", r.x, r.y,
+		r.w, r.h)
+}
+
+func NewRect(x, y, w, h int) rect {
+	return rect{
+		point{x, y},
+		size{w, h},
+	}
+}
+
+// point defines a single point on the screen
 type point struct {
 	x int
 	y int
 }
 
+// size defines a width and height an object takes up
+type size struct {
+	w int
+	h int
+}
+
+// buildState is an int type defining the states a build can be in.
 type buildState int
 
 const (
@@ -33,6 +54,8 @@ const (
 	BuildStateUnknown
 )
 
+// BgColour returns the termbox Attribute for the background colour
+// of a build in this state.
 func (bs buildState) BgColour() termbox.Attribute {
 	switch bs {
 	case BuildStateFailed:
@@ -47,6 +70,8 @@ func (bs buildState) BgColour() termbox.Attribute {
 	return termbox.ColorCyan
 }
 
+// BgColour returns the termbox Attribute for the text colour
+// of a build in this state.
 func (bs buildState) FgColour() termbox.Attribute {
 	switch bs {
 	case BuildStateFailed:
@@ -61,6 +86,7 @@ func (bs buildState) FgColour() termbox.Attribute {
 	return termbox.ColorWhite
 }
 
+// build is a struct covering a build and its current state.
 type build struct {
 	name         string
 	buildState   buildState
@@ -68,16 +94,12 @@ type build struct {
 	acknowledger string
 }
 
-const textPadding int = 1
-
-var buildingMessage string = "Building"
-
 // drawBuildState draws a status box for an individual build within bounds
 func drawBuildState(build build, bounds rect) {
 	bgColour := build.buildState.BgColour()
 	fgColour := build.buildState.FgColour()
 
-	availableWidth := bounds.w - 2*textPadding
+	availableWidth := bounds.size.w - 2*textPadding
 	buildNameWithLengthRestriction, _ := elipsize(build.name, availableWidth)
 
 	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{1, 0})
@@ -137,15 +159,59 @@ func elipsize(s string, maxLength int) (string, error) {
 	return s, nil
 }
 
-// redraw redraws the screen.
-func redraw() {
-	//x, y := termbox.Size()
+type Layout struct {
+	boxes []rect
+}
 
-	drawBuildState(build{"test really really really really really really really really really really really really long", BuildStateFailed, false, ""}, rect{1, 1, 30, 3})
-	drawBuildState(build{"test", BuildStatePassed, true, "Dave"}, rect{1, 5, 30, 3})
-	drawBuildState(build{"test", BuildStateAcknowledged, false, "Sam"}, rect{1, 9, 30, 3})
+func layoutGridForScreen(minimumBoxSize size, numberOfBoxes int, padding int, screenSize size) (Layout, error) {
+	maximumNumberOfVerticalBoxes := (screenSize.h - padding) / (minimumBoxSize.h + padding)
+	// integer division that always rounds up
+	requiredNumberOfColumns := (numberOfBoxes + maximumNumberOfVerticalBoxes - 1) / maximumNumberOfVerticalBoxes
+	columnWidth := (screenSize.w - padding) / requiredNumberOfColumns
+	boxWidth := columnWidth - padding
+	if boxWidth < minimumBoxSize.w {
+		return Layout{}, errors.New("Screen is too small to fit the grid")
+	}
+
+	boxes := []rect{}
+	i := 0
+gridloop:
+	for x := 0; x < requiredNumberOfColumns; x++ {
+		for y := 0; y < maximumNumberOfVerticalBoxes; y++ {
+			boxes = append(boxes, rect{
+				point{
+					padding + x*columnWidth,
+					padding + y*(minimumBoxSize.h+padding),
+				},
+				size{boxWidth, minimumBoxSize.h},
+			})
+			i = i + 1
+			if i == numberOfBoxes {
+				break gridloop
+			}
+		}
+	}
+
+	return Layout{
+		boxes: boxes,
+	}, nil
+}
+
+// redraw redraws the screen.
+func redraw() error {
+	screenWidth, screenHeight := termbox.Size()
+	layout, err := layoutGridForScreen(size{30, 3}, 10, 2, size{screenWidth, screenHeight})
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < 10; i++ {
+		box := layout.boxes[i]
+		drawBuildState(build{"test", BuildStateFailed, false, ""}, box)
+	}
 
 	termbox.Flush()
+	return nil
 }
 
 func Run() {
@@ -156,7 +222,10 @@ func Run() {
 	defer termbox.Close()
 	termbox.SetInputMode(termbox.InputEsc)
 	termbox.SetOutputMode(termbox.Output256)
-	redraw()
+	if err := redraw(); err != nil {
+		fmt.Println("Error: %s", err)
+		return
+	}
 
 mainloop:
 	for {
@@ -174,6 +243,9 @@ mainloop:
 			fmt.Printf("Error: %s\n", ev.Err)
 			break mainloop
 		}
-		redraw()
+		if err := redraw(); err != nil {
+			fmt.Println("Error: %s", err)
+			return
+		}
 	}
 }

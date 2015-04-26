@@ -72,3 +72,68 @@ func TestTextWriterPrintsLabelInCorrectPlace(t *testing.T) {
 		}
 	}
 }
+
+func TestTextWriterShouldNotExceedItsBounds(t *testing.T) {
+
+}
+
+func TestLayoutGridCorrectlyLaysOutRectangles(t *testing.T) {
+	numberOfBoxes := 9
+	layout, err := layoutGridForScreen(size{300, 3}, numberOfBoxes, 1, size{904, 13})
+	if err != nil {
+		t.Fatalf("Unexpected error when calling layoutGridForScreen: %s", err)
+	}
+
+	if len(layout.boxes) != numberOfBoxes {
+		t.Fatalf("layoutGridForScreen: should provide a box for every build, got %d boxes expected %d", len(layout.boxes), numberOfBoxes)
+	}
+
+	expectBoxDimensions := func(i int, box rect, expectedBox rect) {
+		if box != expectedBox {
+			t.Errorf("Box: %d was %s, expected: %s", i, box, expectedBox)
+		}
+	}
+	expectBoxDimensions(0, layout.boxes[0], NewRect(1, 1, 300, 3))
+	expectBoxDimensions(1, layout.boxes[1], NewRect(1, 5, 300, 3))
+	expectBoxDimensions(2, layout.boxes[2], NewRect(1, 9, 300, 3))
+	expectBoxDimensions(3, layout.boxes[3], NewRect(1+301, 1, 300, 3))
+	expectBoxDimensions(4, layout.boxes[4], NewRect(1+301, 5, 300, 3))
+	expectBoxDimensions(5, layout.boxes[5], NewRect(1+301, 9, 300, 3))
+	expectBoxDimensions(6, layout.boxes[6], NewRect(1+301*2, 1, 300, 3))
+	expectBoxDimensions(7, layout.boxes[7], NewRect(1+301*2, 5, 300, 3))
+	expectBoxDimensions(8, layout.boxes[8], NewRect(1+301*2, 9, 300, 3))
+}
+
+func TestLayoutGridCorrectlyLaysOutRectanglesLeavingGapsForUnevenColumns(t *testing.T) {
+	numberOfBoxes := 8
+	layout, err := layoutGridForScreen(size{300, 3}, numberOfBoxes, 1, size{904, 13})
+	if err != nil {
+		t.Fatalf("Unexpected error when calling layoutGridForScreen: %s", err)
+	}
+
+	if len(layout.boxes) != numberOfBoxes {
+		t.Fatalf("layoutGridForScreen: should provide a box for every build, got %d boxes expected %d", len(layout.boxes), numberOfBoxes)
+	}
+
+	expectBoxDimensions := func(i int, box rect, expectedBox rect) {
+		if box != expectedBox {
+			t.Errorf("Box: %d was %s, expected: %s", i, box, expectedBox)
+		}
+	}
+	expectBoxDimensions(0, layout.boxes[0], NewRect(1, 1, 300, 3))
+	expectBoxDimensions(1, layout.boxes[1], NewRect(1, 5, 300, 3))
+	expectBoxDimensions(2, layout.boxes[2], NewRect(1, 9, 300, 3))
+	expectBoxDimensions(3, layout.boxes[3], NewRect(1+301, 1, 300, 3))
+	expectBoxDimensions(4, layout.boxes[4], NewRect(1+301, 5, 300, 3))
+	expectBoxDimensions(5, layout.boxes[5], NewRect(1+301, 9, 300, 3))
+	expectBoxDimensions(6, layout.boxes[6], NewRect(1+301*2, 1, 300, 3))
+	expectBoxDimensions(7, layout.boxes[7], NewRect(1+301*2, 5, 300, 3))
+}
+
+func TestLayoutGridErrorsWhenNotEnoughSpace(t *testing.T) {
+	numberOfBoxes := 9
+	_, err := layoutGridForScreen(size{300, 3}, numberOfBoxes, 1, size{800, 13})
+	if err == nil {
+		t.Errorf("Expected error when calling layoutGridForScreen, when screen too small")
+	}
+}
