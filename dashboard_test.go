@@ -38,3 +38,37 @@ func TestEllipsize(t *testing.T) {
 		}
 	}
 }
+
+func TestTextWriterPrintsLabelInCorrectPlace(t *testing.T) {
+	writerToTest := createTextWriter("Label", point{1, 1})
+
+	y := 0
+	x := 0
+	// Should not print on the first line
+	for x := 0; x < 10; x++ {
+		char := writerToTest(' ', point{x, y})
+		if char != ' ' {
+			t.Errorf("Label starting at (1, 1) should not print at: (%d, %d)",
+				x, y)
+		}
+	}
+
+	y = 1
+	x = 0
+	// Should not print on first column of second line
+	char := writerToTest(' ', point{x, y})
+	if char != ' ' {
+		t.Errorf("Label starting at (1, 1) should not print at: (%d, %d)",
+			x, y)
+	}
+
+	expectedRunes := []rune("Label")
+	// Should print on the second line
+	for x := 1; x < 6; x++ {
+		char := writerToTest(' ', point{x, y})
+		if char != expectedRunes[x-1] {
+			t.Errorf("Label starting at (1, 1) should print %q at: (%d, %d), got: %q",
+				expectedRunes[x-1], x, y, char)
+		}
+	}
+}
