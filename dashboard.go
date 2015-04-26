@@ -38,7 +38,7 @@ func (bs buildState) BgColour() termbox.Attribute {
 	case BuildStateFailed:
 		return termbox.ColorRed
 	case BuildStateAcknowledged:
-		return termbox.ColorYellow
+		return termbox.Attribute(OrangeColour)
 	case BuildStatePassed:
 		return termbox.ColorGreen
 	case BuildStateUnknown:
