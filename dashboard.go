@@ -200,12 +200,12 @@ gridloop:
 // redraw redraws the screen.
 func redraw() error {
 	screenWidth, screenHeight := termbox.Size()
-	layout, err := layoutGridForScreen(size{30, 3}, 10, 2, size{screenWidth, screenHeight})
+	layout, err := layoutGridForScreen(size{30, 3}, 15, 1, size{screenWidth, screenHeight})
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 15; i++ {
 		box := layout.boxes[i]
 		drawBuildState(build{"test", BuildStateFailed, false, ""}, box)
 	}
@@ -242,6 +242,12 @@ mainloop:
 		case termbox.EventError:
 			fmt.Printf("Error: %s\n", ev.Err)
 			break mainloop
+		case termbox.EventResize:
+			termbox.Clear(0, 0)
+			if err := redraw(); err != nil {
+				fmt.Println("Error: %s", err)
+				return
+			}
 		}
 		if err := redraw(); err != nil {
 			fmt.Println("Error: %s", err)
