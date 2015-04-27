@@ -14,36 +14,6 @@ const textPadding int = 1
 
 const buildingMessage string = "Building"
 
-// rect is a simple struct giving a bounding rectangle for a widget
-type rect struct {
-	point
-	size
-}
-
-func (r rect) String() string {
-	return fmt.Sprintf("<Rect x:%d,y:%d | w:%d,h:%d>", r.x, r.y,
-		r.w, r.h)
-}
-
-func NewRect(x, y, w, h int) rect {
-	return rect{
-		point{x, y},
-		size{w, h},
-	}
-}
-
-// point defines a single point on the screen
-type point struct {
-	x int
-	y int
-}
-
-// size defines a width and height an object takes up
-type size struct {
-	w int
-	h int
-}
-
 // buildState is an int type defining the states a build can be in.
 type buildState int
 
@@ -92,6 +62,36 @@ type build struct {
 	buildState   buildState
 	building     bool
 	acknowledger string
+}
+
+// rect is a simple struct giving a bounding rectangle for a widget
+type rect struct {
+	point
+	size
+}
+
+func (r rect) String() string {
+	return fmt.Sprintf("<Rect x:%d,y:%d | w:%d,h:%d>", r.x, r.y,
+		r.w, r.h)
+}
+
+func NewRect(x, y, w, h int) rect {
+	return rect{
+		point{x, y},
+		size{w, h},
+	}
+}
+
+// point defines a single point on the screen
+type point struct {
+	x int
+	y int
+}
+
+// size defines a width and height an object takes up
+type size struct {
+	w int
+	h int
 }
 
 // drawBuildState draws a status box for an individual build within bounds
@@ -159,10 +159,13 @@ func elipsize(s string, maxLength int) (string, error) {
 	return s, nil
 }
 
+// Layout struct containing a slice of rectangles for each grid position.
 type Layout struct {
 	boxes []rect
 }
 
+// layoutGridForScreen returns a Layout detailing positioning for numberOfBoxes,
+// taking into account the mininumBoxSize and padding, fitting onto screenSize.
 func layoutGridForScreen(minimumBoxSize size, numberOfBoxes int, padding int, screenSize size) (Layout, error) {
 	maximumNumberOfVerticalBoxes := (screenSize.h - padding) / (minimumBoxSize.h + padding)
 	// integer division that always rounds up
@@ -215,6 +218,7 @@ func redraw() error {
 }
 
 func Run() {
+	NewBuildFetcher()
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
