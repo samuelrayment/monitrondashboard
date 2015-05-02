@@ -14,7 +14,7 @@ func main() {
 	app.Version = "0.1.0"
 	app.Action = func(c *cli.Context) {
 		fmt.Printf("Monitron 5000\n")
-		md.NewDashboard()
+		md.NewDashboard(md.TermboxCellDrawer{})
 	}
 
 	app.Run(os.Args)

@@ -96,6 +96,27 @@ type size struct {
 	h int
 }
 
+// CellDrawer is an interface for drawing Cells on the screen,
+// we use this wrap the termbox module level api to something a little
+// more testable.
+type CellDrawer interface {
+	// SetCell draws rune ch at x, y with foreground and background attributes.
+	SetCell(x, y int, ch rune, fg, bg termbox.Attribute)
+	Flush()
+}
+
+// TermboxCellDrawer implements CellDrawer using termbox to draw on the terminal
+// screen.
+type TermboxCellDrawer struct{}
+
+func (t TermboxCellDrawer) SetCell(x, y int, ch rune, fg, bg termbox.Attribute) {
+	termbox.SetCell(x, y, ch, fg, bg)
+}
+
+func (t TermboxCellDrawer) Flush() {
+	termbox.Flush()
+}
+
 // drawBuildState draws a status box for an individual build within bounds
 func drawBuildState(build build, bounds rect) {
 	bgColour := build.buildState.BgColour()
@@ -206,14 +227,17 @@ gridloop:
 	}, nil
 }
 
+// Dashboard interface that can draw to any CellDrawer interface.
 type Dashboard struct {
-	builds []build
-	err    error
+	builds     []build
+	err        error
+	cellDrawer CellDrawer
 }
 
-func NewDashboard() Dashboard {
+func NewDashboard(cellDrawer CellDrawer) Dashboard {
 	dashboard := Dashboard{
-		builds: []build{},
+		builds:     []build{},
+		cellDrawer: cellDrawer,
 	}
 	dashboard.run()
 
