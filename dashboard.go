@@ -117,39 +117,6 @@ func (t TermboxCellDrawer) Flush() {
 	termbox.Flush()
 }
 
-// drawBuildState draws a status box for an individual build within bounds
-func drawBuildState(build build, bounds rect) {
-	bgColour := build.buildState.BgColour()
-	fgColour := build.buildState.FgColour()
-
-	availableWidth := bounds.size.w - 2*textPadding
-	buildNameWithLengthRestriction, _ := elipsize(build.name, availableWidth)
-
-	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{1, 0})
-
-	var buildingWriter func(char rune, point point) rune
-	var usernameWriter func(char rune, point point) rune
-	if build.building {
-		buildingWriter = createTextWriter(buildingMessage, point{1, 1})
-		usernameWriter = createTextWriter(build.acknowledger, point{10, 1})
-	} else {
-		buildingWriter = func(char rune, point point) rune { return char }
-		usernameWriter = createTextWriter(build.acknowledger, point{1, 1})
-	}
-
-	for x := 0; x < bounds.w; x++ {
-		for y := 0; y < bounds.h; y++ {
-			char := ' '
-			currentPoint := point{x, y}
-			char = nameWriter(char, currentPoint)
-			char = buildingWriter(char, currentPoint)
-			char = usernameWriter(char, currentPoint)
-
-			termbox.SetCell(x+bounds.x, y+bounds.y, char, fgColour, bgColour)
-		}
-	}
-}
-
 // createTextPrinter takes a string and a starting point and returns a function,
 // the returned function takes the current char to be displayed and a point and
 // will return the the character this printer thinks should be displayed at this point.
@@ -234,6 +201,8 @@ type Dashboard struct {
 	cellDrawer CellDrawer
 }
 
+// NewDashboard creates a new Dashboard using the provided CellDrawer
+// to draw to the screen.
 func NewDashboard(cellDrawer CellDrawer) Dashboard {
 	dashboard := Dashboard{
 		builds:     []build{},
@@ -244,56 +213,8 @@ func NewDashboard(cellDrawer CellDrawer) Dashboard {
 	return dashboard
 }
 
-func (d Dashboard) drawBuilds() error {
-	screenWidth, screenHeight := termbox.Size()
-
-	numberOfBuilds := len(d.builds)
-	layout, err := layoutGridForScreen(size{30, 3}, numberOfBuilds, 1,
-		size{screenWidth, screenHeight})
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < numberOfBuilds; i++ {
-		box := layout.boxes[i]
-		drawBuildState(d.builds[i], box)
-	}
-	return nil
-}
-
-func (d Dashboard) drawError() error {
-	errorString := fmt.Sprintf("Error: %s", d.err.Error())
-	for i, char := range errorString {
-		termbox.SetCell(i, 3, char, termbox.ColorWhite, termbox.ColorBlack)
-	}
-	return nil
-}
-
-// redraw redraws the screen.
-func (d Dashboard) redraw() error {
-	if d.err == nil {
-		if err := d.drawBuilds(); err != nil {
-			d.err = err
-			d.drawError()
-		}
-
-	} else {
-		d.drawError()
-	}
-
-	termbox.Flush()
-	return nil
-}
-
-// termboxEventPoller runs as a separate go routine polling for termbox events
-// (which is a blocking call) and passing them back into the main runloop
-// allowing the selection between termbox events and network data being received
-func (d Dashboard) termboxEventPoller(eventChannel chan termbox.Event) {
-	for {
-		eventChannel <- termbox.PollEvent()
-	}
-}
-
+// run runs the dashboard event loop, redrawing the screen;  responding
+// to input events and updating based on new build information
 func (d *Dashboard) run() {
 	buildFetcher := NewBuildFetcher()
 	err := termbox.Init()
@@ -349,5 +270,88 @@ mainloop:
 				return
 			}
 		}
+	}
+}
+
+// redraw redraws the screen.
+func (d Dashboard) redraw() error {
+	if d.err == nil {
+		if err := d.drawBuilds(); err != nil {
+			d.err = err
+			d.drawError()
+		}
+
+	} else {
+		d.drawError()
+	}
+
+	termbox.Flush()
+	return nil
+}
+
+func (d Dashboard) drawBuilds() error {
+	screenWidth, screenHeight := termbox.Size()
+
+	numberOfBuilds := len(d.builds)
+	layout, err := layoutGridForScreen(size{30, 3}, numberOfBuilds, 1,
+		size{screenWidth, screenHeight})
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < numberOfBuilds; i++ {
+		box := layout.boxes[i]
+		d.drawBuildState(d.builds[i], box)
+	}
+	return nil
+}
+
+func (d Dashboard) drawError() error {
+	errorString := fmt.Sprintf("Error: %s", d.err.Error())
+	for i, char := range errorString {
+		d.cellDrawer.SetCell(i, 3, char, termbox.ColorWhite, termbox.ColorBlack)
+	}
+	return nil
+}
+
+// drawBuildState draws a status box for an individual build within bounds
+func (d Dashboard) drawBuildState(build build, bounds rect) {
+	bgColour := build.buildState.BgColour()
+	fgColour := build.buildState.FgColour()
+
+	availableWidth := bounds.size.w - 2*textPadding
+	buildNameWithLengthRestriction, _ := elipsize(build.name, availableWidth)
+
+	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{1, 0})
+
+	var buildingWriter func(char rune, point point) rune
+	var usernameWriter func(char rune, point point) rune
+	if build.building {
+		buildingWriter = createTextWriter(buildingMessage, point{1, 1})
+		usernameWriter = createTextWriter(build.acknowledger, point{10, 1})
+	} else {
+		buildingWriter = func(char rune, point point) rune { return char }
+		usernameWriter = createTextWriter(build.acknowledger, point{1, 1})
+	}
+
+	for x := 0; x < bounds.w; x++ {
+		for y := 0; y < bounds.h; y++ {
+			char := ' '
+			currentPoint := point{x, y}
+			char = nameWriter(char, currentPoint)
+			char = buildingWriter(char, currentPoint)
+			char = usernameWriter(char, currentPoint)
+
+			d.cellDrawer.SetCell(x+bounds.x, y+bounds.y, char, fgColour, bgColour)
+		}
+	}
+}
+
+// termboxEventPoller runs as a separate go routine polling for termbox events
+// (which is a blocking call) and passing them back into the main runloop
+// allowing the selection between termbox events and network data being received
+func (d Dashboard) termboxEventPoller(eventChannel chan termbox.Event) {
+	for {
+		eventChannel <- termbox.PollEvent()
 	}
 }
