@@ -18,6 +18,8 @@ type BuildUpdate struct {
 	err    error
 }
 
+// A BuildFetcher is an interface that exposes a BuildChannel which can
+// be used to receive all BuildUpdates
 type BuildFetcher interface {
 	BuildChannel() chan BuildUpdate
 }
@@ -35,6 +37,8 @@ func NewBuildFetcher() BuildFetcher {
 	return buildFetcher
 }
 
+// An implementation of BuildFetcher that fetches all build info over
+// a plain tcp socket.
 type tcpBuildFetcher struct {
 	conn         net.Conn
 	reader       StringUntilReader
@@ -124,12 +128,15 @@ func (bf tcpBuildFetcher) processJSONBuildIntoBuildList(buildCollection jsonBuil
 	return returnBuilds
 }
 
+// jsonBuildCollection is a struct for parsing the Monitron build info
+// from json.
 type jsonBuildCollection struct {
 	Failing      []jsonBuild `json:"failing"`
 	Acknowledged []jsonBuild `json:"acknowledged"`
 	Healthy      []jsonBuild `json:"healthy"`
 }
 
+// jsonBuild is a struct detailing a Monitron build's JSON structure.
 type jsonBuild struct {
 	Name         string `json:"name"`
 	Building     bool   `json:"building"`

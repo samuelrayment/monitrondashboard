@@ -208,6 +208,7 @@ gridloop:
 
 type Dashboard struct {
 	builds []build
+	err    error
 }
 
 func NewDashboard() Dashboard {
@@ -219,9 +220,9 @@ func NewDashboard() Dashboard {
 	return dashboard
 }
 
-// redraw redraws the screen.
-func (d Dashboard) redraw() error {
+func (d Dashboard) drawBuilds() error {
 	screenWidth, screenHeight := termbox.Size()
+
 	numberOfBuilds := len(d.builds)
 	layout, err := layoutGridForScreen(size{30, 3}, numberOfBuilds, 1,
 		size{screenWidth, screenHeight})
@@ -232,6 +233,28 @@ func (d Dashboard) redraw() error {
 	for i := 0; i < numberOfBuilds; i++ {
 		box := layout.boxes[i]
 		drawBuildState(d.builds[i], box)
+	}
+	return nil
+}
+
+func (d Dashboard) drawError() error {
+	errorString := fmt.Sprintf("Error: %s", d.err.Error())
+	for i, char := range errorString {
+		termbox.SetCell(i, 3, char, termbox.ColorWhite, termbox.ColorBlack)
+	}
+	return nil
+}
+
+// redraw redraws the screen.
+func (d Dashboard) redraw() error {
+	if d.err == nil {
+		if err := d.drawBuilds(); err != nil {
+			d.err = err
+			d.drawError()
+		}
+
+	} else {
+		d.drawError()
 	}
 
 	termbox.Flush()
@@ -296,6 +319,7 @@ mainloop:
 			}
 		case buildUpdate := <-buildFetcher.BuildChannel():
 			d.builds = buildUpdate.builds
+			d.err = buildUpdate.err
 			if err := d.redraw(); err != nil {
 				fmt.Println("Error: %s", err)
 				return
