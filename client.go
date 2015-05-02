@@ -1,6 +1,8 @@
 package monitrondashboard
 
 // HTTP client code for the monitron dashboard
+// Here you'll find code for receiving build status updates from
+// a moniton server and parsing it into a more dashboard friendly form.
 
 import (
 	"bufio"

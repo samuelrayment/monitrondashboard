@@ -1,6 +1,8 @@
 package monitrondashboard
 
-// Basic dashboard functionality
+// 'GUI' dashboard code for the monitrondashboard.
+// Here you'll find code for displaying text and build boxes
+// and laying the boxes in a grid.
 
 import (
 	"errors"
@@ -167,6 +169,10 @@ type Layout struct {
 // layoutGridForScreen returns a Layout detailing positioning for numberOfBoxes,
 // taking into account the mininumBoxSize and padding, fitting onto screenSize.
 func layoutGridForScreen(minimumBoxSize size, numberOfBoxes int, padding int, screenSize size) (Layout, error) {
+	if numberOfBoxes == 0 {
+		return Layout{}, nil
+	}
+
 	maximumNumberOfVerticalBoxes := (screenSize.h - padding) / (minimumBoxSize.h + padding)
 	// integer division that always rounds up
 	requiredNumberOfColumns := (numberOfBoxes + maximumNumberOfVerticalBoxes - 1) / maximumNumberOfVerticalBoxes
@@ -200,25 +206,49 @@ gridloop:
 	}, nil
 }
 
+type Dashboard struct {
+	builds []build
+}
+
+func NewDashboard() Dashboard {
+	dashboard := Dashboard{
+		builds: []build{},
+	}
+	dashboard.run()
+
+	return dashboard
+}
+
 // redraw redraws the screen.
-func redraw() error {
+func (d Dashboard) redraw() error {
 	screenWidth, screenHeight := termbox.Size()
-	layout, err := layoutGridForScreen(size{30, 3}, 15, 1, size{screenWidth, screenHeight})
+	numberOfBuilds := len(d.builds)
+	layout, err := layoutGridForScreen(size{30, 3}, numberOfBuilds, 1,
+		size{screenWidth, screenHeight})
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < 15; i++ {
+	for i := 0; i < numberOfBuilds; i++ {
 		box := layout.boxes[i]
-		drawBuildState(build{"test", BuildStateFailed, false, ""}, box)
+		drawBuildState(d.builds[i], box)
 	}
 
 	termbox.Flush()
 	return nil
 }
 
-func Run() {
-	NewBuildFetcher()
+// termboxEventPoller runs as a separate go routine polling for termbox events
+// (which is a blocking call) and passing them back into the main runloop
+// allowing the selection between termbox events and network data being received
+func (d Dashboard) termboxEventPoller(eventChannel chan termbox.Event) {
+	for {
+		eventChannel <- termbox.PollEvent()
+	}
+}
+
+func (d *Dashboard) run() {
+	buildFetcher := NewBuildFetcher()
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
@@ -226,36 +256,50 @@ func Run() {
 	defer termbox.Close()
 	termbox.SetInputMode(termbox.InputEsc)
 	termbox.SetOutputMode(termbox.Output256)
-	if err := redraw(); err != nil {
+	if err := d.redraw(); err != nil {
 		fmt.Println("Error: %s", err)
 		return
 	}
+	eventChannel := make(chan termbox.Event, 10)
+	go d.termboxEventPoller(eventChannel)
 
 mainloop:
 	for {
-		switch ev := termbox.PollEvent(); ev.Type {
-		case termbox.EventKey:
-			switch ev.Key {
-			case termbox.KeyEsc:
+		select {
+		case ev, ok := <-eventChannel:
+			if !ok {
 				break mainloop
-			default:
-				if ev.Ch == 'q' {
+			}
+			switch ev.Type {
+			case termbox.EventKey:
+				switch ev.Key {
+				case termbox.KeyEsc:
 					break mainloop
+				default:
+					if ev.Ch == 'q' {
+						break mainloop
+					}
+				}
+			case termbox.EventError:
+				fmt.Printf("Error: %s\n", ev.Err)
+				break mainloop
+			case termbox.EventResize:
+				termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+				if err := d.redraw(); err != nil {
+					fmt.Println("Error: %s", err)
+					return
 				}
 			}
-		case termbox.EventError:
-			fmt.Printf("Error: %s\n", ev.Err)
-			break mainloop
-		case termbox.EventResize:
-			termbox.Clear(0, 0)
-			if err := redraw(); err != nil {
+			if err := d.redraw(); err != nil {
 				fmt.Println("Error: %s", err)
 				return
 			}
-		}
-		if err := redraw(); err != nil {
-			fmt.Println("Error: %s", err)
-			return
+		case buildUpdate := <-buildFetcher.BuildChannel():
+			d.builds = buildUpdate.builds
+			if err := d.redraw(); err != nil {
+				fmt.Println("Error: %s", err)
+				return
+			}
 		}
 	}
 }
