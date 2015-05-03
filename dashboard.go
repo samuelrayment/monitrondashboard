@@ -84,6 +84,15 @@ func NewRect(x, y, w, h int) rect {
 	}
 }
 
+// PointWithinRect returns true if the provided point exists within
+// the rect
+func (r rect) PointWithinRect(point point) bool {
+	if point.x >= r.x && point.x <= r.x+r.w && point.y >= r.y && point.y <= r.y+r.h {
+		return true
+	}
+	return false
+}
+
 // point defines a single point on the screen
 type point struct {
 	x int
@@ -117,12 +126,17 @@ func (t TermboxCellDrawer) Flush() {
 	termbox.Flush()
 }
 
+// RuneWriter is a function that returns the rune that should be drawn at point,
+// the current rune `char` is passed into the RuneWriter so it can return that
+// if this writer doesn't want to draw a rune, allowing for chaining of writers
+type RuneWriter func(char rune, point point) rune
+
 // createTextPrinter takes a string and a starting point and returns a function,
 // the returned function takes the current char to be displayed and a point and
 // will return the the character this printer thinks should be displayed at this point.
 // Note these functions take the existing char to enable multiple functions to be
 // chained together
-func createTextWriter(text string, startingPoint point) func(char rune, point point) rune {
+func createTextWriter(text string, startingPoint point) RuneWriter {
 	runeText := []rune(text)
 	expectedRow := startingPoint.y
 	columnOffset := startingPoint.x
@@ -132,6 +146,47 @@ func createTextWriter(text string, startingPoint point) func(char rune, point po
 			if charIndex < len(runeText) {
 				return runeText[charIndex]
 			}
+		}
+		return char
+	}
+}
+
+const (
+	boxTopLeft     = '┏'
+	boxTopRight    = '┓'
+	boxBottomLeft  = '┗'
+	boxBottomRight = '┛'
+	boxHorizontal  = '━'
+	boxVertical    = '┃'
+)
+
+// createBorderedBoxWriter returns a RuneWriter that draws a box
+// for the rectangle marked by rect.
+func createBorderedBoxWriter(rect rect) RuneWriter {
+	return func(char rune, point point) rune {
+		if point.x == rect.x {
+			char = boxVertical
+			if point.y == rect.y {
+				char = boxTopLeft
+			} else if point.y == rect.y+rect.h-1 {
+				char = boxBottomLeft
+			}
+			return char
+		}
+
+		if point.x == rect.x+rect.w-1 {
+			char = boxVertical
+			if point.y == rect.y {
+				char = boxTopRight
+			} else if point.y == rect.y+rect.h-1 {
+				char = boxBottomRight
+			}
+			return char
+		}
+
+		if (point.y == rect.y || point.y == rect.y+rect.h-1) && rect.PointWithinRect(point) {
+			char = boxHorizontal
+			return char
 		}
 		return char
 	}
@@ -292,7 +347,7 @@ func (d Dashboard) drawBuilds() error {
 	screenWidth, screenHeight := termbox.Size()
 
 	numberOfBuilds := len(d.builds)
-	layout, err := layoutGridForScreen(size{30, 3}, numberOfBuilds, 1,
+	layout, err := layoutGridForScreen(size{30, 4}, numberOfBuilds, 1,
 		size{screenWidth, screenHeight})
 	if err != nil {
 		return err
@@ -321,22 +376,25 @@ func (d Dashboard) drawBuildState(build build, bounds rect) {
 	availableWidth := bounds.size.w - 2*textPadding
 	buildNameWithLengthRestriction, _ := elipsize(build.name, availableWidth)
 
-	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{1, 0})
+	boxWriter := createBorderedBoxWriter(
+		NewRect(0, 0, bounds.w, bounds.h))
+	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{2, 1})
 
-	var buildingWriter func(char rune, point point) rune
-	var usernameWriter func(char rune, point point) rune
+	var buildingWriter RuneWriter
+	var usernameWriter RuneWriter
 	if build.building {
-		buildingWriter = createTextWriter(buildingMessage, point{1, 1})
-		usernameWriter = createTextWriter(build.acknowledger, point{10, 1})
+		buildingWriter = createTextWriter(buildingMessage, point{2, 2})
+		usernameWriter = createTextWriter(build.acknowledger, point{11, 2})
 	} else {
 		buildingWriter = func(char rune, point point) rune { return char }
-		usernameWriter = createTextWriter(build.acknowledger, point{1, 1})
+		usernameWriter = createTextWriter(build.acknowledger, point{2, 2})
 	}
 
 	for x := 0; x < bounds.w; x++ {
 		for y := 0; y < bounds.h; y++ {
 			char := ' '
 			currentPoint := point{x, y}
+			char = boxWriter(char, currentPoint)
 			char = nameWriter(char, currentPoint)
 			char = buildingWriter(char, currentPoint)
 			char = usernameWriter(char, currentPoint)
