@@ -2,7 +2,14 @@ package monitrondashboard
 
 // Tests for the Monitron dashboard
 
-import "testing"
+import (
+	"bytes"
+	"github.com/nsf/termbox-go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"strings"
+	"testing"
+)
 
 var ellipsizeTests = []struct {
 	in          string
@@ -136,4 +143,92 @@ func TestLayoutGridErrorsWhenNotEnoughSpace(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error when calling layoutGridForScreen, when screen too small")
 	}
+}
+
+// memoryCellWriter is a CellWriter struct that can be used
+// to assert widgets being drawn correctly on the 'screen'
+type memoryCellWriter struct {
+	cells [][]rune
+	maxX  int
+	maxY  int
+	mock.Mock
+}
+
+func NewMemoryCellWriter() memoryCellWriter {
+	return memoryCellWriter{
+		cells: [][]rune{},
+		maxX:  0,
+		maxY:  0,
+	}
+}
+
+func (m memoryCellWriter) Flush() {
+	m.Called()
+}
+
+func (m *memoryCellWriter) SetCell(x, y int, ch rune, fg, bg termbox.Attribute) {
+	if m.maxX < x {
+		m.maxX = x
+	}
+
+	if m.maxY < y {
+		m.maxY = y
+	}
+
+	if len(m.cells) < x+1 {
+		cells := make([][]rune, x+1)
+		copy(cells, m.cells)
+		m.cells = cells[0 : x+1]
+	}
+
+	cellColumn := m.cells[x]
+	if cellColumn == nil {
+		m.cells[x] = make([]rune, y+1)
+	} else if len(m.cells[x]) < y+1 {
+		cells := make([]rune, y+1)
+		copy(cells, m.cells[x])
+		m.cells[x] = cells[0 : y+1]
+	}
+	m.cells[x][y] = ch
+}
+
+// ScreenRepresentation returns a string representing the layout of the screen.
+// Each line is terminated with |\n this representation can be asserted against
+// to test drawing functions.
+func (m memoryCellWriter) ScreenPresentation() string {
+	var buffer bytes.Buffer
+	for y := 0; y <= m.maxY; y++ {
+		for x := 0; x <= m.maxX; x++ {
+			if len(m.cells[x]) < y+1 {
+				// no character stored here
+				buffer.WriteRune('-')
+			} else {
+				buffer.WriteRune(m.cells[x][y])
+			}
+		}
+		buffer.WriteString("|\n")
+	}
+
+	return buffer.String()
+}
+
+func TestDrawingABuild(t *testing.T) {
+	expectedString := `
+ Test Build                   |
+ Building Dave                |
+                              |`
+
+	cw := NewMemoryCellWriter()
+	dashboard := NewDashboard(&cw)
+	testBuild := build{
+		name:         "Test Build",
+		buildState:   BuildStateFailed,
+		building:     true,
+		acknowledger: "Dave",
+	}
+
+	dashboard.drawBuildState(testBuild, NewRect(0, 0, 30, 3))
+	output := strings.Trim(cw.ScreenPresentation(), "\n")
+	expectedString = strings.Trim(expectedString, "\n")
+	assert.Equal(t, expectedString, output)
 }

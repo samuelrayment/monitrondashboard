@@ -208,14 +208,13 @@ func NewDashboard(cellDrawer CellDrawer) Dashboard {
 		builds:     []build{},
 		cellDrawer: cellDrawer,
 	}
-	dashboard.run()
 
 	return dashboard
 }
 
 // run runs the dashboard event loop, redrawing the screen;  responding
 // to input events and updating based on new build information
-func (d *Dashboard) run() {
+func (d *Dashboard) Run() {
 	buildFetcher := NewBuildFetcher()
 	err := termbox.Init()
 	if err != nil {
