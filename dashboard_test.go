@@ -148,15 +148,22 @@ func TestLayoutGridErrorsWhenNotEnoughSpace(t *testing.T) {
 // memoryCellWriter is a CellWriter struct that can be used
 // to assert widgets being drawn correctly on the 'screen'
 type memoryCellWriter struct {
-	cells [][]rune
+	cells [][]memoryCell
 	maxX  int
 	maxY  int
 	mock.Mock
 }
 
+// memoryCell represents a drawn cell, holding its rune and attributes.
+type memoryCell struct {
+	char rune
+	fg   termbox.Attribute
+	bg   termbox.Attribute
+}
+
 func NewMemoryCellWriter() memoryCellWriter {
 	return memoryCellWriter{
-		cells: [][]rune{},
+		cells: [][]memoryCell{},
 		maxX:  0,
 		maxY:  0,
 	}
@@ -176,20 +183,20 @@ func (m *memoryCellWriter) SetCell(x, y int, ch rune, fg, bg termbox.Attribute) 
 	}
 
 	if len(m.cells) < x+1 {
-		cells := make([][]rune, x+1)
+		cells := make([][]memoryCell, x+1)
 		copy(cells, m.cells)
 		m.cells = cells[0 : x+1]
 	}
 
 	cellColumn := m.cells[x]
 	if cellColumn == nil {
-		m.cells[x] = make([]rune, y+1)
+		m.cells[x] = make([]memoryCell, y+1)
 	} else if len(m.cells[x]) < y+1 {
-		cells := make([]rune, y+1)
+		cells := make([]memoryCell, y+1)
 		copy(cells, m.cells[x])
 		m.cells[x] = cells[0 : y+1]
 	}
-	m.cells[x][y] = ch
+	m.cells[x][y] = memoryCell{ch, fg, bg}
 }
 
 // ScreenRepresentation returns a string representing the layout of the screen.
@@ -203,13 +210,21 @@ func (m memoryCellWriter) ScreenPresentation() string {
 				// no character stored here
 				buffer.WriteRune('-')
 			} else {
-				buffer.WriteRune(m.cells[x][y])
+				buffer.WriteRune(m.cells[x][y].char)
 			}
 		}
 		buffer.WriteString("|\n")
 	}
 
 	return buffer.String()
+}
+
+func (m memoryCellWriter) AssertCellAttributes(t *testing.T, x, y int, fg, bg termbox.Attribute, fgAttrText, bgAttrText string) {
+	assert.Equal(t, fg, m.cells[x][y].fg,
+		"Cell at %d,%d should have %s", x, y, fgAttrText)
+	assert.Equal(t, bg, m.cells[x][y].bg,
+		"Cell at %d,%d should have %s", x, y, bgAttrText)
+
 }
 
 func TestDrawingABuild(t *testing.T) {
@@ -231,4 +246,12 @@ func TestDrawingABuild(t *testing.T) {
 	output := strings.Trim(cw.ScreenPresentation(), "\n")
 	expectedString = strings.Trim(expectedString, "\n")
 	assert.Equal(t, expectedString, output)
+
+	for x := 0; x < 30; x++ {
+		for y := 0; y < 3; y++ {
+			cw.AssertCellAttributes(t, x, y,
+				termbox.ColorWhite, termbox.ColorRed,
+				"White Text", "a Red Background")
+		}
+	}
 }
