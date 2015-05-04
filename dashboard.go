@@ -345,8 +345,12 @@ mainloop:
 
 // redraw redraws the screen.
 func (d Dashboard) redraw() error {
+	screenWidth, screenHeight := termbox.Size()
+
+	d.drawTitle()
 	if d.err == nil {
-		if err := d.drawBuilds(); err != nil {
+		bounds := NewRect(0, 1, screenWidth, screenHeight-1)
+		if err := d.drawBuilds(bounds); err != nil {
 			d.err = err
 			d.drawError()
 		}
@@ -359,12 +363,23 @@ func (d Dashboard) redraw() error {
 	return nil
 }
 
-func (d Dashboard) drawBuilds() error {
-	screenWidth, screenHeight := termbox.Size()
+// drawTitle draws the MONITRON title at the top of the terminal screen
+func (d Dashboard) drawTitle() {
+	title := "MONITRON 5000"
+	xOffset := (screenWidth - len(title)) / 2
+	for i, char := range title {
+		d.cellDrawer.SetCell(i+xOffset, 1, char, termbox.ColorWhite, termbox.ColorBlack)
+	}
+
+}
+
+// drawBuilds draws a grid of build info boxes inside the rectangle dictated by
+// bounds, it returns an error if bounds is too small to fit the builds
+func (d Dashboard) drawBuilds(bounds rect) error {
 
 	numberOfBuilds := len(d.builds)
 	layout, err := layoutGridForScreen(size{30, 5}, numberOfBuilds, 1,
-		NewRect(0, 0, screenWidth, screenHeight))
+		bounds)
 	if err != nil {
 		return err
 	}
