@@ -1,9 +1,5 @@
-FROM google/golang
+FROM debian
+MAINTAINER Sam Rayment samrayment@gmail.com
 
-WORKDIR /gopath/src/github.com/samuelrayment/monitrondashboard
-ADD . /gopath/src/github.com/samuelrayment/monitrondashboard
-RUN go get github.com/samuelrayment/monitrondashboard/...
-RUN go install github.com/samuelrayment/monitrondashboard/...
-
-CMD []
-ENTRYPOINT ["/gopath/bin/monidash"]
+COPY monidash.tmp /monidash
+ENTRYPOINT ["/monidash"]
