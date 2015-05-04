@@ -128,6 +128,54 @@ func TestBorderBoxWriterDrawsBox(t *testing.T) {
 	}
 }
 
+func TestBoxFillWriterFillsBox(t *testing.T) {
+	bfw := createBoxFillWriter(NewRect(1, 1, 5, 5), termbox.ColorCyan)
+
+	// test left/right margin
+	for y := 0; y < 7; y++ {
+		_, outputAttribute := bfw(termbox.ColorWhite, termbox.ColorBlack, point{0, y})
+		assert.Equal(t, termbox.ColorBlack, outputAttribute,
+			"Expected (%d,%d) to not have its colour changed", 0, y)
+
+		_, outputAttribute = bfw(termbox.ColorWhite, termbox.ColorBlack, point{7, y})
+		assert.Equal(t, termbox.ColorBlack, outputAttribute,
+			"Expected (%d,%d) to not have its colour changed", 7, y)
+	}
+
+	// test top/bottom margin
+	for x := 0; x < 7; x++ {
+		_, outputAttribute := bfw(termbox.ColorWhite, termbox.ColorBlack, point{x, 0})
+		assert.Equal(t, termbox.ColorBlack, outputAttribute,
+			"Expected (%d,%d) to not have its colour changed", x, 0)
+
+		_, outputAttribute = bfw(termbox.ColorWhite, termbox.ColorBlack, point{x, 7})
+		assert.Equal(t, termbox.ColorBlack, outputAttribute,
+			"Expected (%d,%d) to not have its colour changed", x, 7)
+	}
+
+	// test filled in square
+	for x := 1; x <= 6; x++ {
+		for y := 1; y <= 6; y++ {
+			_, outputAttribute := bfw(termbox.ColorWhite, termbox.ColorBlack, point{x, y})
+			assert.Equal(t, termbox.ColorCyan, outputAttribute,
+				"Expected (%d,%d) to have its colour changed to form the box", x, y)
+		}
+	}
+
+}
+
+func TestBoxFillWriterDoesNotAlterForeground(t *testing.T) {
+	bfw := createBoxFillWriter(NewRect(1, 1, 5, 5), termbox.ColorCyan)
+
+	for x := 0; x < 10; x++ {
+		for y := 0; y < 10; y++ {
+			fgAttribute, _ := bfw(termbox.ColorWhite, termbox.ColorBlack, point{x, y})
+			assert.Equal(t, termbox.ColorWhite, fgAttribute,
+				"Expected (%d,%d) to not have changed foreground colour.", x, y)
+		}
+	}
+}
+
 func TestLayoutGridCorrectlyLaysOutRectangles(t *testing.T) {
 	numberOfBoxes := 9
 	layout, err := layoutGridForScreen(size{300, 3}, numberOfBoxes, 1, size{904, 13})
@@ -274,8 +322,8 @@ func (m memoryCellWriter) AssertCellAttributes(t *testing.T, x, y int, fg, bg te
 func TestDrawingABuild(t *testing.T) {
 	expectedString := `
  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓|
- ┃ Test Build                 ┃|
- ┃ Building Dave              ┃|
+ ┃          Test Build        ┃|
+ ┃          Building Dave     ┃|
  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛|`
 
 	cw := NewMemoryCellWriter()
@@ -291,12 +339,4 @@ func TestDrawingABuild(t *testing.T) {
 	output := strings.Trim(cw.ScreenPresentation(), "\n")
 	expectedString = strings.Trim(expectedString, "\n")
 	assert.Equal(t, expectedString, output, "Compare: \n%s\nvs.\n%s", expectedString, output)
-
-	//for x := 0; x < 30; x++ {
-	//	for y := 0; y < 3; y++ {
-	//		cw.AssertCellAttributes(t, x, y,
-	//			termbox.ColorWhite, termbox.ColorRed,
-	//			"White Text", "a Red Background")
-	//	}
-	//}
 }

@@ -131,6 +131,22 @@ func (t TermboxCellDrawer) Flush() {
 // if this writer doesn't want to draw a rune, allowing for chaining of writers
 type RuneWriter func(char rune, point point) rune
 
+// AttributeWriter is a function that returns the attributes that should be applied
+// to a particular cell.
+type AttributeWriter func(fg, bg termbox.Attribute, point point) (termbox.Attribute, termbox.Attribute)
+
+// createBoxFillWriter creates a AttributeWriter that draws a box filled in with
+// colour for the rectangle marked by rect.
+func createBoxFillWriter(rect rect, colour termbox.Attribute) AttributeWriter {
+	return func(fg, bg termbox.Attribute, point point) (termbox.Attribute, termbox.Attribute) {
+		if rect.PointWithinRect(point) {
+			return fg, colour
+		} else {
+			return fg, bg
+		}
+	}
+}
+
 // createTextPrinter takes a string and a starting point and returns a function,
 // the returned function takes the current char to be displayed and a point and
 // will return the the character this printer thinks should be displayed at this point.
@@ -347,7 +363,7 @@ func (d Dashboard) drawBuilds() error {
 	screenWidth, screenHeight := termbox.Size()
 
 	numberOfBuilds := len(d.builds)
-	layout, err := layoutGridForScreen(size{30, 4}, numberOfBuilds, 1,
+	layout, err := layoutGridForScreen(size{30, 5}, numberOfBuilds, 1,
 		size{screenWidth, screenHeight})
 	if err != nil {
 		return err
@@ -370,36 +386,46 @@ func (d Dashboard) drawError() error {
 
 // drawBuildState draws a status box for an individual build within bounds
 func (d Dashboard) drawBuildState(build build, bounds rect) {
-	bgColour := build.buildState.BgColour()
-	fgColour := build.buildState.FgColour()
+	runeWriters := make([]RuneWriter, 0, 10)
+	attributeWriters := make([]AttributeWriter, 0, 10)
 
 	availableWidth := bounds.size.w - 2*textPadding
 	buildNameWithLengthRestriction, _ := elipsize(build.name, availableWidth)
 
-	boxWriter := createBorderedBoxWriter(
-		NewRect(0, 0, bounds.w, bounds.h))
-	nameWriter := createTextWriter(buildNameWithLengthRestriction, point{2, 1})
+	runeWriters = append(runeWriters,
+		createBorderedBoxWriter(NewRect(0, 0, bounds.w, bounds.h)))
+	runeWriters = append(runeWriters,
+		createTextWriter(buildNameWithLengthRestriction, point{11, 1}))
 
-	var buildingWriter RuneWriter
-	var usernameWriter RuneWriter
 	if build.building {
-		buildingWriter = createTextWriter(buildingMessage, point{2, 2})
-		usernameWriter = createTextWriter(build.acknowledger, point{11, 2})
+		runeWriters = append(runeWriters,
+			createTextWriter(buildingMessage, point{11, 2}))
+		runeWriters = append(runeWriters,
+			createTextWriter(build.acknowledger, point{20, 2}))
 	} else {
-		buildingWriter = func(char rune, point point) rune { return char }
-		usernameWriter = createTextWriter(build.acknowledger, point{2, 2})
+		runeWriters = append(runeWriters,
+			createTextWriter(build.acknowledger, point{11, 2}))
 	}
+
+	attributeWriters = append(attributeWriters,
+		createBoxFillWriter(NewRect(2, 1, 7, 2),
+			build.buildState.BgColour()))
 
 	for x := 0; x < bounds.w; x++ {
 		for y := 0; y < bounds.h; y++ {
 			char := ' '
-			currentPoint := point{x, y}
-			char = boxWriter(char, currentPoint)
-			char = nameWriter(char, currentPoint)
-			char = buildingWriter(char, currentPoint)
-			char = usernameWriter(char, currentPoint)
+			bg := termbox.ColorBlack
+			fg := termbox.ColorWhite
 
-			d.cellDrawer.SetCell(x+bounds.x, y+bounds.y, char, fgColour, bgColour)
+			currentPoint := point{x, y}
+			for _, runeWriter := range runeWriters {
+				char = runeWriter(char, currentPoint)
+			}
+			for _, attrWriter := range attributeWriters {
+				fg, bg = attrWriter(fg, bg, currentPoint)
+			}
+
+			d.cellDrawer.SetCell(x+bounds.x, y+bounds.y, char, fg, bg)
 		}
 	}
 }
