@@ -330,7 +330,7 @@ func TestDrawingABuild(t *testing.T) {
  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛|`
 
 	cw := NewMemoryCellWriter()
-	dashboard := NewDashboard(&cw)
+	dashboard := NewDashboard(nil, &cw)
 	testBuild := build{
 		name:         "Test Build",
 		buildState:   BuildStateFailed,

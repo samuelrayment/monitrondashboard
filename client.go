@@ -30,8 +30,10 @@ type StringUntilReader interface {
 	ReadString(delim byte) (line string, err error)
 }
 
-func NewBuildFetcher() BuildFetcher {
-	buildFetcher := tcpBuildFetcher{}
+func NewBuildFetcher(address string) BuildFetcher {
+	buildFetcher := tcpBuildFetcher{
+		address: address,
+	}
 	buildFetcher.buildChannel = make(chan BuildUpdate)
 	buildFetcher.fetchBuilds()
 	return buildFetcher
@@ -40,6 +42,7 @@ func NewBuildFetcher() BuildFetcher {
 // An implementation of BuildFetcher that fetches all build info over
 // a plain tcp socket.
 type tcpBuildFetcher struct {
+	address      string
 	conn         net.Conn
 	reader       StringUntilReader
 	buildChannel chan BuildUpdate
@@ -51,7 +54,7 @@ func (bf tcpBuildFetcher) BuildChannel() chan BuildUpdate {
 
 func (bf *tcpBuildFetcher) fetchBuilds() {
 	var err error
-	if bf.conn, err = net.Dial("tcp", "localhost:9988"); err != nil {
+	if bf.conn, err = net.Dial("tcp", bf.address); err != nil {
 		fmt.Printf("Error Connecting")
 		return
 	}
