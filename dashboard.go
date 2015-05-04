@@ -270,12 +270,14 @@ type Dashboard struct {
 	builds     []build
 	err        error
 	cellDrawer CellDrawer
+	fetcher    BuildFetcher
 }
 
 // NewDashboard creates a new Dashboard using the provided CellDrawer
 // to draw to the screen.
-func NewDashboard(cellDrawer CellDrawer) Dashboard {
+func NewDashboard(fetcher BuildFetcher, cellDrawer CellDrawer) Dashboard {
 	dashboard := Dashboard{
+		fetcher:    fetcher,
 		builds:     []build{},
 		cellDrawer: cellDrawer,
 	}
@@ -286,7 +288,6 @@ func NewDashboard(cellDrawer CellDrawer) Dashboard {
 // run runs the dashboard event loop, redrawing the screen;  responding
 // to input events and updating based on new build information
 func (d *Dashboard) Run() {
-	buildFetcher := NewBuildFetcher()
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
@@ -332,7 +333,7 @@ mainloop:
 				fmt.Println("Error: %s", err)
 				return
 			}
-		case buildUpdate := <-buildFetcher.BuildChannel():
+		case buildUpdate := <-d.fetcher.BuildChannel():
 			d.builds = buildUpdate.builds
 			d.err = buildUpdate.err
 			if err := d.redraw(); err != nil {

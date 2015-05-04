@@ -14,7 +14,8 @@ func main() {
 	app.Version = "0.1.0"
 	app.Action = func(c *cli.Context) {
 		fmt.Printf("Monitron 5000\n")
-		dashboard := md.NewDashboard(md.TermboxCellDrawer{})
+		fetcher := md.NewBuildFetcher()
+		dashboard := md.NewDashboard(fetcher, md.TermboxCellDrawer{})
 		dashboard.Run()
 	}
 
