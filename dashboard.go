@@ -227,15 +227,15 @@ type Layout struct {
 
 // layoutGridForScreen returns a Layout detailing positioning for numberOfBoxes,
 // taking into account the mininumBoxSize and padding, fitting onto screenSize.
-func layoutGridForScreen(minimumBoxSize size, numberOfBoxes int, padding int, screenSize size) (Layout, error) {
+func layoutGridForScreen(minimumBoxSize size, numberOfBoxes int, padding int, bounds rect) (Layout, error) {
 	if numberOfBoxes == 0 {
 		return Layout{}, nil
 	}
 
-	maximumNumberOfVerticalBoxes := (screenSize.h - padding) / (minimumBoxSize.h + padding)
+	maximumNumberOfVerticalBoxes := (bounds.h - padding) / (minimumBoxSize.h + padding)
 	// integer division that always rounds up
 	requiredNumberOfColumns := (numberOfBoxes + maximumNumberOfVerticalBoxes - 1) / maximumNumberOfVerticalBoxes
-	columnWidth := (screenSize.w - padding) / requiredNumberOfColumns
+	columnWidth := (bounds.w - padding) / requiredNumberOfColumns
 	boxWidth := columnWidth - padding
 	if boxWidth < minimumBoxSize.w {
 		return Layout{}, errors.New("Screen is too small to fit the grid")
@@ -248,8 +248,8 @@ gridloop:
 		for y := 0; y < maximumNumberOfVerticalBoxes; y++ {
 			boxes = append(boxes, rect{
 				point{
-					padding + x*columnWidth,
-					padding + y*(minimumBoxSize.h+padding),
+					bounds.x + padding + x*columnWidth,
+					bounds.y + padding + y*(minimumBoxSize.h+padding),
 				},
 				size{boxWidth, minimumBoxSize.h},
 			})
@@ -364,7 +364,7 @@ func (d Dashboard) drawBuilds() error {
 
 	numberOfBuilds := len(d.builds)
 	layout, err := layoutGridForScreen(size{30, 5}, numberOfBuilds, 1,
-		size{screenWidth, screenHeight})
+		NewRect(0, 0, screenWidth, screenHeight))
 	if err != nil {
 		return err
 	}
