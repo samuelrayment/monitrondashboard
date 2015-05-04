@@ -24,6 +24,6 @@ Docker
 ------
 
 You can run the monitron dashboard from a docker image, you must use a tty and interactive mode
-though, e.g.:
+though adjusting the MD_ADDRESS to the correct monitron server address, e.g.:
 
     sudo docker run -ti --rm --name monidash -e MD_ADDRESS=192.168.0.13:9988 bestriped/monitrondashboard
