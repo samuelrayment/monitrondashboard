@@ -20,3 +20,10 @@ You can also provide the address using an environment variable:
 
     MD_ADDRESS
 
+Docker
+------
+
+You can run the monitron dashboard from a docker image, you must use a tty and interactive mode
+though, e.g.:
+
+    sudo docker run -ti --rm --name monidash -e MD_ADDRESS=192.168.0.13:9988 monitrondashboard
