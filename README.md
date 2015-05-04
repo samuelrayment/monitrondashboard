@@ -13,8 +13,10 @@ We assume you have a working go environment, obtainable here: http://golang.org/
 * go install github.com/samuelrayment/monitrondashboard
 
 You can now run the dashboard using:
+
     monidash -a <hostname:port for your monitron server>
 
 You can also provide the address using an environment variable: 
+
     MD_ADDRESS
 
