@@ -4,6 +4,8 @@ Monitron Dashboard
 A Dashboard for the Monitron build server, using only the terminal for presentation; written using 
 the excellent [Termbox](https://github.com/nsf/termbox-go).
 
+[![Build Status](https://travis-ci.org/samuelrayment/monitrondashboard.svg?branch=master)](https://travis-ci.org/samuelrayment/monitrondashboard)
+
 Getting Started
 ---------------
 
