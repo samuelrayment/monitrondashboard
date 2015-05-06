@@ -14,7 +14,7 @@ type MockStringUntilReader struct {
 }
 
 func (msur *MockStringUntilReader) ReadString(delim byte) (line string, err error) {
-	args := msur.Called(delim)
+	args := msur.Called(int32(delim))
 	return args.String(0), args.Error(1)
 }
 
